@@ -66,7 +66,7 @@
                 </executions>
                 <configuration>
                     <cupDefinition>
-                        src/main/java/de/thm/mni/compilerbau/phases/_02_03_parser/parser.cup
+                        ${project.basedir}/src/main/java/de/thm/mni/compilerbau/phases/_02_03_parser/parser.cup
                     </cupDefinition>
                     <className>Parser</className>
                     <symbolsName>Sym</symbolsName>
