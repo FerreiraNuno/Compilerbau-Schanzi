@@ -44,13 +44,160 @@ terminal LT, LE, GT, GE, NE, EQ;                               //Comparison oper
 terminal PLUS, MINUS, STAR, SLASH;                             //Arithmetic operators
 terminal ASGN, COMMA, COLON, SEMIC;                            //Other delimiters
 terminal TYPE, PROC, ARRAY, OF, REF, VAR, IF, ELSE, WHILE;     //Keywords
-
 terminal Identifier IDENT;    //Identifiers
 terminal Integer INTLIT;      //Integer literals
 
+
 /* Non-terminals */
 non terminal Program program;
+non terminal ProcedureDeclaration procedureDeclaration;
+non terminal TypeDeclaration typeDeclaration;
+
+non terminal TypeExpression typeExpression;
+non terminal ArrayTypeExpression arrayTypeExpression;
+
+non terminal List<ParameterDeclaration> parameterList;
+non terminal ParameterDeclaration parameterListElement;
+non terminal List<ParameterDeclaration> nonEmptyParameterList;
+
+non terminal List<VariableDeclaration> varDeclarationList;
+non terminal VariableDeclaration varDeclaration;
+non terminal List<GlobalDeclaration> globalDeclarationList;
+non terminal GlobalDeclaration globalDeclaration;
+
+non terminal Statement statement;
+non terminal List<Statement> statementList;
+non terminal CompoundStatement compoundStatement;
+
+non terminal IfStatement ifStatement;
+non terminal Statement elseStatement;
+non terminal WhileStatement whileStatement;
+non terminal AssignStatement assigntStatement;
+non terminal CallStatement callStatement;
+non terminal List<Expression> arguments;
+non terminal List<Expression> argumentList;
+
+non terminal Expression expression;
+non terminal BinaryExpression binaryExpression;
+non terminal Expression priority1;
+non terminal Expression priority2;
+non terminal Expression priority3;
+non terminal Expression priority4;
+non terminal Variable variable;
 
 start with program;
 
-program ::= INTLIT; //TODO (assignment 2 and 3): Just a dummy, needs to be replaced by the actual spl grammar.
+program ::= globalDeclarationList:globalDecs {: RESULT = new Program(new Position(1,1), globalDecs); :}; //TODO (assigntStatement 2 and 3): Just a dummy, needs to be replaced by the actual spl grammar.
+
+
+globalDeclarationList ::=
+            globalDeclaration:head globalDeclarationList:tail {: RESULT = cons(head, tail); :}
+          | {: RESULT = nil(); :};
+
+globalDeclaration ::=
+            typeDeclaration:typeDec {: RESULT = typeDec; :}
+          | procedureDeclaration:procDec {: RESULT = procDec; :};
+
+typeDeclaration ::=
+            TYPE:type IDENT:indent EQ typeExpression:typeExp SEMIC {: RESULT = new TypeDeclaration(new Position(typeleft, typeright), indent, typeExp); :};
+
+typeExpression ::=
+            IDENT:ident {: RESULT = new NamedTypeExpression(new Position(identleft, identright), ident); :}
+          | arrayTypeExpression:arrayDec {: RESULT = arrayDec; :};
+
+arrayTypeExpression ::=
+            ARRAY:arr LBRACK INTLIT:length RBRACK OF typeExpression:typeExp {: RESULT = new ArrayTypeExpression(new Position(arrleft, arrright), length, typeExp); :};
+
+procedureDeclaration ::=
+            PROC:proc IDENT:ident LPAREN parameterList:params RPAREN LCURL varDeclarationList:varDecs statementList:statementList RCURL {: RESULT = new ProcedureDeclaration(new Position(procleft, procright), ident, params, varDecs, statementList); :};
+
+parameterList ::=
+            nonEmptyParameterList:params {: RESULT = params; :}
+          | {: RESULT = nil(); :};
+
+nonEmptyParameterList ::=
+            parameterListElement:param {: RESULT = cons(param, nil()); :}
+          | parameterListElement:head COMMA nonEmptyParameterList:tail {: RESULT = cons(head, tail); :};
+
+parameterListElement ::=
+            IDENT:ident COLON typeExpression:typeExp {: RESULT = new ParameterDeclaration(new Position(identleft, identright), ident, typeExp, false); :}
+          | REF:ref IDENT:ident COLON typeExpression:typeExp {: RESULT = new ParameterDeclaration(new Position(refleft, refright), ident, typeExp, true); :};
+
+varDeclarationList ::=
+            varDeclaration:head varDeclarationList:tail {: RESULT = cons(head, tail);:}| {: RESULT = nil(); :};
+
+varDeclaration ::=
+            VAR:var IDENT:ident COLON typeExpression:typeExp SEMIC {: RESULT = new VariableDeclaration(new Position(varleft, varright), ident, typeExp); :};
+
+statement ::=
+            SEMIC:emptyS {: RESULT = new EmptyStatement(new Position(emptySright, emptySleft)); :}
+          | ifStatement:ifS {: RESULT = ifS; :}
+          | whileStatement:whileL {: RESULT = whileL; :}
+          | assigntStatement:asgn {: RESULT = asgn; :}
+          | callStatement:proc {: RESULT = proc; :}
+          | compoundStatement:instrB {: RESULT = instrB; :};
+
+statementList ::=
+            statement:head statementList:tail {: RESULT = cons(head, tail); :}
+          | {: RESULT = nil(); :};
+
+compoundStatement ::=
+            LCURL:pos statementList:instrs RCURL {: RESULT = new CompoundStatement(new Position(posleft, posright), instrs); :};
+
+ifStatement ::=
+            IF:pos LPAREN binaryExpression:condition RPAREN statement:then {: RESULT = new IfStatement(new Position(posleft, posright), condition, then, new EmptyStatement(new Position(posleft, posright))); :}
+          | IF:pos LPAREN binaryExpression:condition RPAREN statement:then elseStatement:elseS {: RESULT = new IfStatement(new Position(posleft, posright), condition, then, elseS); :};
+
+elseStatement ::=
+            ELSE statement:instrB {: RESULT = instrB; :};
+
+whileStatement ::=
+            WHILE:pos LPAREN binaryExpression:condition RPAREN statement:body {: RESULT = new WhileStatement(new Position(posleft, posright), condition, body); :};
+
+assigntStatement ::=
+            variable:arr ASGN priority1:value SEMIC {: RESULT = new AssignStatement(new Position(arrleft, arrright), arr, value); :};
+
+callStatement ::=
+            IDENT:ident LPAREN arguments:args RPAREN SEMIC {: RESULT = new CallStatement(new Position(identleft, identright), ident, args); :};
+
+arguments ::=
+            argumentList:args {: RESULT = args; :}
+          | {: RESULT = nil(); :};
+
+argumentList ::=
+            expression:expr {: RESULT = cons(expr, nil()); :}
+          | expression:head COMMA argumentList:tail {: RESULT = cons(head, tail); :};
+
+expression ::=
+            binaryExpression:exprBool {: RESULT = exprBool; :}
+          | priority1:lvl1 {: RESULT = lvl1; :};
+
+binaryExpression ::=
+            priority1:lop LT:comparator priority1:rop {: RESULT = new BinaryExpression(new Position(comparatorleft, comparatorright), BinaryExpression.Operator.LST, lop, rop); :}
+          | priority1:lop NE:comparator priority1:rop {: RESULT = new BinaryExpression(new Position(comparatorleft, comparatorright), BinaryExpression.Operator.NEQ, lop, rop); :}
+          | priority1:lop GT:comparator priority1:rop {: RESULT = new BinaryExpression(new Position(comparatorleft, comparatorright), BinaryExpression.Operator.GRT, lop, rop); :}
+          | priority1:lop LE:comparator priority1:rop {: RESULT = new BinaryExpression(new Position(comparatorleft, comparatorright), BinaryExpression.Operator.LSE, lop, rop); :}
+          | priority1:lop EQ:comparator priority1:rop {: RESULT = new BinaryExpression(new Position(comparatorleft, comparatorright), BinaryExpression.Operator.EQU, lop, rop); :}
+          | priority1:lop GE:comparator priority1:rop {: RESULT = new BinaryExpression(new Position(comparatorleft, comparatorright), BinaryExpression.Operator.GRE, lop, rop); :};
+
+priority1 ::=
+            priority1:lop PLUS:op priority2:rop {: RESULT = new BinaryExpression(new Position(opleft, opright), BinaryExpression.Operator.ADD, lop, rop); :}
+          | priority1:lop MINUS:op priority2:rop {: RESULT = new BinaryExpression(new Position(opleft, opright), BinaryExpression.Operator.SUB, lop, rop); :}
+          | priority2:lvl2 {: RESULT = lvl2; :};
+
+priority2 ::=
+            priority2:lop STAR:op priority3:rop {: RESULT = new BinaryExpression(new Position(opleft, opright), BinaryExpression.Operator.MUL, lop, rop); :}
+          | priority2:lop SLASH:op priority3:rop {: RESULT = new BinaryExpression(new Position(opleft, opright), BinaryExpression.Operator.DIV, lop, rop); :}
+          | priority3:lvl3 {: RESULT = lvl3; :};
+
+priority3 ::=
+            MINUS priority4:lvl4 {: RESULT = new BinaryExpression(new Position(lvl4left, lvl4right), BinaryExpression.Operator.SUB, new IntLiteral(Position.ERROR_POSITION, 0), lvl4); :}
+          | priority4:lvl4 {: RESULT = lvl4; :};
+
+priority4 ::=
+            LPAREN priority1:lvl1 RPAREN {: RESULT = lvl1; :}
+          | INTLIT:intlit {: RESULT = new IntLiteral(new Position(intlitleft, intlitright), intlit); :}
+          | variable:var {: RESULT = new VariableExpression(new Position(varleft, varright), var); :};
+
+variable ::=
+            variable:var LBRACK priority1:lvl1 RBRACK {: RESULT = new ArrayAccess(new Position(varleft, varright), var, lvl1); :} | IDENT:varexpr {: RESULT = new NamedVariable(new Position(varexprleft, varexprright), varexpr);:};
